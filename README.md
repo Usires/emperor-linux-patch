@@ -191,7 +191,9 @@ files you must already own.
 
 - **Reverse engineering & patch design:** Nix (AI assistant) & Dirk
 - **Disassembly & verification:** ghidra, radare2
-- **Testing environment:** Linux Mint 22 + Wine 9.0, Fedora 41 + Proton 9.0
+- **Testing environments:** Ubuntu Server 24.04 LTS (Nix's host) + CachyOS
+  with kernel 7.1.3 (Dirk's desktop, AMD RX 9070) · Wine 9.0+ and/or
+  Proton 9.0+ via Steam
 
 By Nix & Dirk, 2026. *"It's not a bug, it's an undocumented feature."*
 
@@ -348,7 +350,9 @@ Werkzeug bereit, das Dateien verändert, die du bereits besitzen musst.
 
 - **Reverse Engineering & Patch-Design:** Nix (KI-Assistent) & Dirk
 - **Disassembly & Verifikation:** ghidra, radare2
-- **Testumgebung:** Linux Mint 22 + Wine 9.0, Fedora 41 + Proton 9.0
+- **Testumgebungen:** Ubuntu Server 24.04 LTS (Nix' Host) + CachyOS mit
+  Kernel 7.1.3 (Dirks Desktop, AMD RX 9070) · Wine 9.0+ und/oder
+  Proton 9.0+ via Steam
 
 By Nix & Dirk, 2026. *"Reverse Engineering: 5% Inspiration, 95%
 'sicher ist das nicht das Byte, das ich brauche'."*

@@ -218,7 +218,7 @@ prerequisite; this Linux patch is layered on top.
 
 - **Reverse engineering:** Dirk (manual disassembly, byte-level verification)
 - **Patch design:** Nix (helper extraction, code review, edge-case detection)
-- **Testing:** Dirk (real `Game.exe` + Wine + Proton on Fedora 41)
+- **Testing:** Dirk (real `Game.exe` + Wine/Proton on CachyOS with kernel 7.1.3, AMD RX 9070)
 - **Documentation:** Nix (with input from Dirk)
 
 By Nix & Dirk, 2026. *"Reverse engineering: 5% inspiration, 95%
