@@ -18,20 +18,23 @@ included — you must legally own a copy.
 
 ### What this patch does
 
-The original 2001 release has two compatibility obstacles on modern Linux:
+The official 1.09 patch already removes the **initial** CD-check at
+game startup. What it does *not* fix is the **per-CD-switch check**
+during campaign play: the game asks for CD2, CD3, and CD4 by name when
+loading mission data, and refuses to continue if the answer is "CD
+not present."
 
-1. **`Game.exe` calls `GetDriveTypeA("E:\\")`** at startup to verify the
-   game CD is inserted. Without it, the game refuses to start.
-2. **`resource.cfg` hard-codes CD drive letters** (`E:\`, `D:\`,
-   `.\cd3\`, `.\cd4\`) for movie files and level data spread across 4 CDs.
+On real hardware this is fine — you swap the disc. On Linux, you don't
+have a CD drive, so the per-CD check kills the game mid-campaign.
 
 This patch:
 
-- **Patches 4 instructions in `Game.exe`** to bypass the CD-check at
-  offsets `0x9668f`, `0x966c4`, `0x96731`, `0x968bf` (verified via
-  disassembly).
-- **Patches 8 path strings in `resource.cfg`** to point at a local
-  `data/CD2/`, `data/CD3/`, `data/CD4/` directory layout.
+- **Patches 4 instructions in `Game.exe`** so the per-CD-switch check
+  always reports "CD present" for CD2/CD3/CD4. (Offsets `0x9668f`,
+  `0x966c4`, `0x96731`, `0x968bf`, verified via disassembly.)
+- **Patches 8 path strings in `resource.cfg`** so the per-CD lookups
+  resolve to a local `data/CD2/`, `data/CD3/`, `data/CD4/` directory
+  layout instead of drive letters `E:\` / `D:\` / `.\cd3\` / `.\cd4\`.
 
 The original `EMPEROR.EXE` and `PATCHW32.DLL` are **left untouched** —
 the patch is layered on top of the official 1.09 update.
@@ -41,12 +44,16 @@ the patch is layered on top of the official 1.09 update.
 - A legally owned copy of **Emperor: Battle for Dune** (GOG, EA, original
   CD — any source)
 - The official **1.09 English patch** applied: download
-  [`EM109DE.exe`](https://www.google.com/search?q=emperor+battle+dune+1.09+patch+EM109DE)
-  from the Westwood patch archive and run it once on your game directory.
-  This updates `PATCHW32.DLL` to the 1.09 release and is required for
-  the game to work on modern systems *regardless* of this Linux patch.
+  [`EM109DE.exe`](https://www.moddb.com/games/emperor-battle-for-dune/downloads/emperor-patch-109)
+  from the Westwood patch archive on Mod DB and run it once on your game
+  directory. The 1.09 patch fixes community-map bugs **and** removes the
+  initial CD-check at startup. Without it, the game will not start at
+  all on modern systems, and the MD5 check in this script will fail.
 - **Python 3.8+** on the machine you run the patcher from
 - The game files in a writable directory you control
+- The four files from each of CD2, CD3, and CD4 extracted into your
+  local game directory: `DIALOG.BAG`, `MOVIES0001.RFD`, `MOVIES0001.RFH`,
+  `MUSIC.BAG` (the filenames are identical on all three CDs)
 
 > The 1.09 patch is not bundled here for licensing reasons. Apply it
 > before running the Linux patch — the MD5 check in the script will fail
@@ -56,15 +63,28 @@ the patch is layered on top of the official 1.09 update.
 
 #### 1. Prepare the directory layout
 
-Copy the movie files from each CD into a local `data/` subdirectory:
+Copy the four mission-data files from each campaign CD into a local
+`data/` subdirectory. The filenames are identical on all three CDs:
+
+```
+data/CD2/
+  DIALOG.BAG
+  MOVIES0001.RFD
+  MOVIES0001.RFH
+  MUSIC.BAG
+data/CD3/    (same four files)
+data/CD4/    (same four files)
+```
 
 ```bash
 cd ~/Games/Emperor_FAUGUS/  # your game directory
-mkdir -p data/CD2/Movies data/CD3/Movies data/CD4/Movies
+mkdir -p data/CD2 data/CD3 data/CD4
 # Copy from your CD rips / GOG install / original media
-cp /path/to/CD2/Movies/* data/CD2/Movies/
-cp /path/to/CD3/Movies/* data/CD3/Movies/
-cp /path/to/CD4/Movies/* data/CD4/Movies/
+cp /path/to/CD2/DIALOG.BAG data/CD2/
+cp /path/to/CD2/MOVIES0001.RFD data/CD2/
+cp /path/to/CD2/MOVIES0001.RFH data/CD2/
+cp /path/to/CD2/MUSIC.BAG data/CD2/
+# Repeat for CD3 and CD4
 ```
 
 #### 2. Run the patcher
@@ -87,10 +107,10 @@ You should see:
   ✓ Backup created: resource.cfg.original.bak
 
   🔧 Patching Game.exe (4 patches):
-    ✅ Patch 1: jne → NOP
-    ✅ Patch 2: je → NOP
-    ✅ Patch 3: je → jmp + NOP
-    ✅ Patch 4: xor al,al → mov al,1
+    ✅ Patch 1: per-CD check 1 — jne → NOP (CD-switch reports “present”)
+    ✅ Patch 2: per-CD check 2 — je → NOP
+    ✅ Patch 3: per-CD check 3 — je → jmp + NOP
+    ✅ Patch 4: per-CD check 4 — xor al,al → mov al,1 (force success)
 
   🔧 Patching resource.cfg (8 CD paths):
     ✅ MOVIES1: 'E:\\Movies' → 'D:\\Movies'
@@ -114,8 +134,10 @@ launch. Steam auto-handles the Wine prefix.
 
 **Wine:** `wine ~/Games/Emperor_FAUGUS/Game.exe`
 
-The game will start without a CD prompt and load movies/data from your
-local `data/` directory.
+The game starts (CD1 check bypassed by 1.09), campaign CD-switches
+report "CD present" (our Game.exe patches), and the per-CD lookups
+resolve to your local `data/CD2/`, `data/CD3/`, `data/CD4/`
+directories.
 
 ### What the script does NOT touch
 
@@ -181,21 +203,25 @@ By Nix & Dirk, 2026. *"It's not a bug, it's an undocumented feature."*
 
 ### Was dieser Patch macht
 
-Die Originalversion von 2001 hat zwei Kompatibilitätsprobleme auf modernem
-Linux:
+Der offizielle 1.09-Patch entfernt bereits den **initialen** CD-Check
+beim Spielstart. Was er *nicht* fixt, ist die **CD-Wechsel-Abfrage
+während der Kampagne**: Das Spiel fragt beim Laden der Missionsdaten
+nach CD2, CD3 und CD4 und bricht ab, wenn die Antwort „CD nicht
+vorhanden“ lautet.
 
-1. **`Game.exe` ruft beim Start `GetDriveTypeA("E:\\")` auf**, um zu
-   prüfen, ob die Spiel-CD eingelegt ist. Ohne CD startet das Spiel nicht.
-2. **`resource.cfg` enthält feste CD-Laufwerksbuchstaben** (`E:\`, `D:\`,
-   `.\cd3\`, `.\cd4\`) für Filmdateien und Level-Daten auf 4 CDs.
+Auf echter Hardware kein Problem — man wechselt die CD. Auf Linux hast
+du kein CD-Laufwerk, also killt die CD-Wechsel-Abfrage das Spiel mitten
+in der Kampagne.
 
 Dieser Patch:
 
-- **Patcht 4 Instruktionen in `Game.exe`** an den Offsets `0x9668f`,
-  `0x966c4`, `0x96731`, `0x968bf`, um die CD-Prüfung zu umgehen (per
-  Disassembly verifiziert).
-- **Patcht 8 Pfad-Zeichenketten in `resource.cfg`**, sodass sie auf ein
-  lokales `data/CD2/`, `data/CD3/`, `data/CD4/`-Verzeichnis zeigen.
+- **Patcht 4 Instruktionen in `Game.exe`**, sodass die CD-Wechsel-Abfrage
+  für CD2/CD3/CD4 immer „CD vorhanden“ zurückgibt. (Offsets `0x9668f`,
+  `0x966c4`, `0x96731`, `0x968bf`, per Disassembly verifiziert.)
+- **Patcht 8 Pfad-Zeichenketten in `resource.cfg`**, sodass die
+  CD-spezifischen Lookups auf eine lokale `data/CD2/`, `data/CD3/`,
+  `data/CD4/`-Verzeichnisstruktur aufgelöst werden statt auf
+  Laufwerksbuchstaben `E:\` / `D:\` / `.\cd3\` / `.\cd4\`.
 
 Die originale `EMPEROR.EXE` und `PATCHW32.DLL` bleiben **unangetastet** —
 der Patch setzt auf dem offiziellen 1.09-Update auf.
@@ -205,13 +231,18 @@ der Patch setzt auf dem offiziellen 1.09-Update auf.
 - Eine legal erworbene Kopie von **Emperor: Battle for Dune** (GOG, EA,
   Original-CD — egal)
 - Der offizielle **1.09-Patch** muss angewendet sein: lade
-  [`EM109DE.exe`](https://www.google.com/search?q=emperor+battle+dune+1.09+patch+EM109DE)
-  aus dem Westwood-Archiv und führe es einmal im Spielverzeichnis aus.
-  Es aktualisiert `PATCHW32.DLL` auf den 1.09-Stand und ist Voraussetzung
-  dafür, dass das Spiel auf modernen Systemen läuft — *unabhängig* von
-  diesem Linux-Patch.
+  [`EM109DE.exe`](https://www.moddb.com/games/emperor-battle-for-dune/downloads/emperor-patch-109)
+  aus dem Westwood-Archiv auf Mod DB und führe es einmal im
+  Spielverzeichnis aus. Der 1.09-Patch fixt Community-Map-Bugs **und**
+  entfernt den initialen CD-Check beim Start. Ohne ihn startet das
+  Spiel auf modernen Systemen gar nicht, und die MD5-Prüfung in diesem
+  Skript schlägt fehl.
 - **Python 3.8+** auf dem Rechner, auf dem du den Patcher ausführst
 - Die Spieldateien in einem beschreibbaren Verzeichnis
+- Die vier Dateien von jeder der CDs 2, 3 und 4 in dein lokales
+  Spielverzeichnis extrahiert: `DIALOG.BAG`, `MOVIES0001.RFD`,
+  `MOVIES0001.RFH`, `MUSIC.BAG` (die Dateinamen sind auf allen drei
+  CDs identisch)
 
 > Der 1.09-Patch ist aus lizenzrechtlichen Gründen nicht im Repo
 > enthalten. Wende ihn vor dem Linux-Patch an — sonst schlägt die
@@ -221,15 +252,29 @@ der Patch setzt auf dem offiziellen 1.09-Update auf.
 
 #### 1. Verzeichnisstruktur vorbereiten
 
-Kopiere die Filmdateien von jeder CD in ein lokales `data/`-Unterverzeichnis:
+Kopiere die vier Missionsdateien von jeder Kampagnen-CD in ein lokales
+`data/`-Unterverzeichnis. Die Dateinamen sind auf allen drei CDs
+identisch:
+
+```
+data/CD2/
+  DIALOG.BAG
+  MOVIES0001.RFD
+  MOVIES0001.RFH
+  MUSIC.BAG
+data/CD3/    (gleiche vier Dateien)
+data/CD4/    (gleiche vier Dateien)
+```
 
 ```bash
 cd ~/Games/Emperor_FAUGUS/  # dein Spielverzeichnis
-mkdir -p data/CD2/Movies data/CD3/Movies data/CD4/Movies
+mkdir -p data/CD2 data/CD3 data/CD4
 # Aus CD-Rips / GOG-Installation / Original-Medien kopieren
-cp /path/to/CD2/Movies/* data/CD2/Movies/
-cp /path/to/CD3/Movies/* data/CD3/Movies/
-cp /path/to/CD4/Movies/* data/CD4/Movies/
+cp /path/to/CD2/DIALOG.BAG data/CD2/
+cp /path/to/CD2/MOVIES0001.RFD data/CD2/
+cp /path/to/CD2/MOVIES0001.RFH data/CD2/
+cp /path/to/CD2/MUSIC.BAG data/CD2/
+# Analog für CD3 und CD4
 ```
 
 #### 2. Patcher ausführen
@@ -247,8 +292,10 @@ aktiviere Proton, starte. Steam kümmert sich um das Wine-Prefix.
 
 **Wine:** `wine ~/Games/Emperor_FAUGUS/Game.exe`
 
-Das Spiel startet ohne CD-Abfrage und lädt Filme/Daten aus deinem
-lokalen `data/`-Verzeichnis.
+Das Spiel startet (CD1-Check durch 1.09 umgangen), die CD-Wechsel-
+Abfragen während der Kampagne melden „CD vorhanden“ (unsere Game.exe-
+Patches), und die CD-spezifischen Lookups verweisen auf deine lokalen
+`data/CD2/`, `data/CD3/`, `data/CD4/`-Verzeichnisse.
 
 ### Was das Skript NICHT anfasst
 

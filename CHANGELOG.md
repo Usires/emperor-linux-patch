@@ -25,6 +25,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   created only on first run.
 
 ### Design notes
+- **Two CD-checks, two solutions.** The initial CD-check at startup
+  is removed by the official 1.09 patch (`EM109DE.exe`), which also
+  fixes community-map bugs. The per-CD-switch check during campaign
+  play is what this Linux patcher fixes. Treating them as separate
+  problems with separate solutions is essential — if you only fix
+  one, the game either doesn't start or crashes mid-campaign.
+- **The check is answered, not removed.** We don't NOP out the
+  per-CD-switch check. We make it always answer "CD present." Combined
+  with the `resource.cfg` redirect, the game loads its CD2/CD3/CD4
+  data from local disk.
 - **Minimal scope.** An earlier version of this patcher (in the working
   directory, not in this repo) tried to patch `EMPEROR.EXE` with IAT
   hooks and structure-init replacements borrowed from community trainers.

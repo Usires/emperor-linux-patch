@@ -6,12 +6,25 @@ Emperor: Battle for Dune — Linux/Proton Compatibility Patch
 Patches Game.exe (4 code patches) and resource.cfg (8 CD-path patches)
 so the game runs under Linux/Wine/Proton without the original CDs.
 
+What this DOES:
+  - Makes the per-CD-switch check (fired during campaign play when the
+    game asks for CD2/CD3/CD4) always report "CD present", so the
+    per-CD lookups resolve to your local data/ tree instead of failing
+    the mission-load.
+
+What this does NOT do:
+  - Remove the initial CD-check at startup. The official 1.09 patch
+    (EM109DE.exe) already does that. Apply it first, or this script
+    will refuse to run (MD5 check on Game.exe).
+
 Prerequisites:
   - The official 1.09 patch (EM109DE.exe) has been applied
     → PATCHW32.DLL is at the 1.09 release
     → EMPEROR.EXE is byte-identical to the Westwood original
-  - Directory layout exists: data/CD2/, data/CD3/, data/CD4/
-    (movie files from CD2/3/4 copied there)
+  - The four mission-data files (DIALOG.BAG, MOVIES0001.RFD,
+    MOVIES0001.RFH, MUSIC.BAG) have been extracted from each of CD2,
+    CD3, and CD4 into a local data/CD2/, data/CD3/, data/CD4/ tree.
+    The filenames are identical on all three CDs.
 
 We do NOT touch:
   - EMPEROR.EXE (stays byte-identical to the Westwood original)
@@ -50,39 +63,41 @@ GAME_EXE_EXPECTED_MD5 = "7dc4fda2f6b7e8a6b70e846686a81938"
 
 
 # === Game.exe Patches ===
-# Four code patches that defuse the CD-switch checks in the main program:
-#   Patch 1: jne rel32 → NOP (CD1-Check, "wenn keine CD, dann fehler")
-#   Patch 2: je  rel32 → NOP (CD2-Wechsel-Check)
-#   Patch 3: je  rel32 → jmp rel32 + NOP (CD-Wechsel-Routine immer durchlaufen)
-#   Patch 4: xor al,al → mov al,1 (Return-Wert auf "Erfolg" zwingen)
+# Four code patches that make the per-CD-switch check (fired during
+# campaign play when the game asks for CD2/CD3/CD4) always answer
+# "CD present". The check still runs; we just lie to it.
 #
-# Die Offsets wurden per Disassembler (ghidra/radare2) im
-# Hauptprogramm-Thread verifiziert.
+# The official 1.09 patch already removes the *initial* CD-check at
+# startup. These patches address the per-CD-switch check that fires
+# mid-campaign, which 1.09 does NOT fix.
+#
+# The offsets were verified via ghidra disassembly of Game.exe at
+# the 1.09-patch state.
 GAME_PATCHES = [
     {
-        "name":   "Patch 1: jne → NOP",
-        "desc":   "CD1 check: error jump no-op",
+        "name":   "Patch 1: per-CD switch check 1 (jne → NOP)",
+        "desc":   "Per-CD check 1: 'wrong CD' jump NOP'd → always 'present'",
         "offset": 0x9668f,
         "from":   bytes.fromhex("29020000"),
         "to":     bytes.fromhex("00000000"),
     },
     {
-        "name":   "Patch 2: je → NOP",
-        "desc":   "CD2 switch check defused",
+        "name":   "Patch 2: per-CD switch check 2 (je → NOP)",
+        "desc":   "Per-CD check 2: 'wrong CD' jump NOP'd → always 'present'",
         "offset": 0x966c4,
         "from":   bytes.fromhex("da010000"),
         "to":     bytes.fromhex("00000000"),
     },
     {
-        "name":   "Patch 3: je → jmp + NOP",
-        "desc":   "CD-Wechsel-Routine immer durchlaufen (Überspring-Logik killen)",
+        "name":   "Patch 3: per-CD switch check 3 (je → jmp + NOP)",
+        "desc":   "Per-CD check 3: conditional jump flipped to unconditional",
         "offset": 0x96731,
         "from":   bytes.fromhex("0f8492010000"),
         "to":     bytes.fromhex("e99301000090"),
     },
     {
-        "name":   "Patch 4: xor al,al → mov al,1",
-        "desc":   "Return-Wert der CD-Check-Funktion auf 'Erfolg' zwingen",
+        "name":   "Patch 4: per-CD switch check 4 (xor al,al → mov al,1)",
+        "desc":   "Per-CD check 4: return value forced to 'success'",
         "offset": 0x968bf,
         "from":   bytes.fromhex("32c0"),
         "to":     bytes.fromhex("b001"),
@@ -91,8 +106,11 @@ GAME_PATCHES = [
 
 
 # === resource.cfg Patches ===
-# Mappt die 8 Original-CD-Pfade (E:\, D:\, .\cd3\, .\cd4\) auf lokale
-# data/-Unterverzeichnisse. CRLF-Stil wird erhalten (Westwood-DOS).
+# Maps the 8 original CD paths (E:\, D:\, .\cd3\, .\cd4\) to a local
+# data/ directory layout. The actual data files (DIALOG.BAG,
+# MOVIES0001.RFD/RFH, MUSIC.BAG) are not provided here — users must
+# extract them from their legally owned copies of CD2/CD3/CD4.
+# CRLF line endings are preserved (Westwood's parser is strict).
 RESOURCE_CFG_PATCHES = [
     ("MOVIES1", "E:\\Movies",  "D:\\Movies"),
     ("MOVIES2", "E:\\Movies",  "data\\CD2\\Movies"),
