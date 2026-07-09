@@ -123,18 +123,19 @@ RESOURCE_CFG_PATCHES = [
 ]
 
 
-# === Hilfsfunktionen ===
+# === Helper functions ===
 
 def md5_of_file(path: Path) -> str:
-    """Berechne MD5-Hash einer Datei."""
+    """Compute the MD5 hash of a file's contents."""
     return hashlib.md5(path.read_bytes()).hexdigest()
 
 
 def make_backup(target_path: Path) -> Path:
     """Create a backup in the target directory if it does not yet exist.
 
-    Backups heißen wie die Original-Datei mit .original.bak-Suffix.
-    Existing backups are not overwritten.
+    Backups use the original filename with a `.original.bak` suffix
+    appended (e.g. `Game.exe` → `Game.exe.original.bak`). Existing
+    backups are not overwritten.
     """
     backup_path = target_path.with_suffix(target_path.suffix + ".original.bak")
     if backup_path.exists():
@@ -146,13 +147,13 @@ def make_backup(target_path: Path) -> Path:
 
 
 def apply_patches_simple(path: Path, patches: list) -> bool:
-    """Wende einfache Byte-Patches auf eine Datei an.
+    """Apply simple byte patches to a file.
 
-    Pro Patch: liest die Bytes an `offset`, prüft gegen `from`,
-    overwrites with `to`. Already-patched locations are skipped.
-    Bei Mismatch (Bytes passen weder zu `from` noch zu `to`) wird
-    abgebrochen — das deutet auf falsche Datei oder bereits manuell
-    veränderte Datei hin.
+    For each patch: reads bytes at `offset`, checks them against `from`,
+    overwrites with `to`. Already-patched locations are skipped. If the
+    bytes match neither `from` nor `to`, the function aborts — that
+    points at the wrong file or a file that has been modified manually
+    in an unexpected way.
     """
     print(f"\n  🔧 Patching {path.name} ({len(patches)} patches):")
     data = bytearray(path.read_bytes())
@@ -177,7 +178,7 @@ def apply_patches_simple(path: Path, patches: list) -> bool:
 
 
 def verify_game(path: Path) -> bool:
-    """Prüfe, ob Game.exe alle 4 Patches trägt."""
+    """Check whether Game.exe carries all 4 patches."""
     data = path.read_bytes()
     return all(
         data[p["offset"]:p["offset"] + len(p["to"])] == p["to"]
@@ -186,24 +187,24 @@ def verify_game(path: Path) -> bool:
 
 
 def patch_resource_cfg(path: Path) -> bool:
-    """Ersetze CD-Pfade in resource.cfg gemäß RESOURCE_CFG_PATCHES.
+    """Replace CD paths in resource.cfg according to RESOURCE_CFG_PATCHES.
 
-    Format der resource.cfg:
-      <Schluessel>          ← Schlüsselzeile (z.B. "CD1", "MOVIES3")
-      <Pfad>                ← Pfad-Zeile (die wir patchen wollen)
-      (leerzeile)
+    Format of resource.cfg:
+      <key>                ← key line (e.g. "CD1", "MOVIES3")
+      <path>              ← path line (the one we patch)
+      (blank line)
 
-    Die Datei benutzt DOS-Zeilenenden (CRLF). Wir erhalten den Stil
-    exakt — Pfad-Ersetzungen werden mit dem gleichen EOL-Suffix wie
-    die Original-Zeile geschrieben, damit die resultierende Datei
-    byte-konform zur HYBRID-Referenz ist.
+    The file uses DOS line endings (CRLF). We preserve that style exactly:
+    path replacements are written with the same EOL suffix as the
+    original line, so the resulting file is byte-compatible with a
+    hybrid reference.
     """
     print(f"\n  🔧 Patching {path.name} ({len(RESOURCE_CFG_PATCHES)} CD paths):")
     raw = path.read_bytes()
 
-    # EOL-Stil robust ermitteln: Mehrheits-Vote.
-    # CRLF-Dateien haben genauso viele \r wie \n (jedes \n hat ein \r davor).
-    # LF-only-Dateien haben \n ohne \r davor.
+    # Detect EOL style by majority vote:
+    # CRLF files have as many \r as \n (every \n has a \r before it).
+    # LF-only files have \n with no preceding \r.
     n_crlf = raw.count(b"\r\n")
     n_lf_only = raw.count(b"\n") - n_crlf
     eol = b"\r\n" if n_crlf >= n_lf_only else b"\n"
@@ -215,8 +216,8 @@ def patch_resource_cfg(path: Path) -> bool:
     errors = []
     patched = 0
     for key, original, replacement in RESOURCE_CFG_PATCHES:
-        # key/original/replacement sind hier Python-strings; für Byte-Vergleich
-        # brauchen wir latin-1 (1:1 ASCII-Mapping)
+        # key/original/replacement are Python strings here; for byte
+        # comparison we need latin-1 (1:1 ASCII mapping)
         key_b = key.encode("latin-1")
         original_b = original.encode("latin-1")
         replacement_b = replacement.encode("latin-1")
@@ -229,7 +230,7 @@ def patch_resource_cfg(path: Path) -> bool:
                 pending_key = key_b
                 continue
             if pending_key == key_b and stripped_b == original_b:
-                # Patch diese Zeile: Pfad durch Replacement ersetzen, EOL erhalten
+                # Patch this line: replace the path, preserve the EOL
                 lines[i] = replacement_b + eol
                 pending_key = None
                 found = True
@@ -251,13 +252,13 @@ def patch_resource_cfg(path: Path) -> bool:
 
 
 def verify_resource_cfg(path: Path) -> bool:
-    """Prüfe, ob resource.cfg alle 8 Pfad-Patches trägt."""
+    """Check whether resource.cfg carries all 8 path patches."""
     raw = path.read_bytes()
     text = raw.decode("latin-1")
     return all(replacement in text for _, _, replacement in RESOURCE_CFG_PATCHES)
 
 
-# === Hauptlogik ===
+# === Main logic ===
 
 def patch(game_dir: Path) -> bool:
     """Patch Game.exe + resource.cfg in the target directory. Returns True on success."""
@@ -281,7 +282,7 @@ def patch(game_dir: Path) -> bool:
     if game_md5 == GAME_EXE_EXPECTED_MD5:
         print(f"  ✓ Game.exe MD5 matches: {game_md5} (Westwood original)")
     elif verify_game(game_exe):
-        # MD5 passt nicht, aber die 4 Patches sind schon drin → idempotenter Re-Run
+        # MD5 doesn't match but the 4 patches are already there — idempotent re-run
         print(f"  ✓ Game.exe already patched (MD5 {game_md5} ≠ original)")
         game_ok = True
     else:
@@ -291,13 +292,13 @@ def patch(game_dir: Path) -> bool:
         print(f"   Likely wrong directory or corrupted file.")
         return False
 
-    # --- Backups anlegen ---
+    # --- Create backups ---
     print()
     make_backup(game_exe)
     make_backup(resource_cfg)
 
-    # --- Game.exe patchen ---
-    if not game_ok:  # wenn nicht bereits oben als "schon gepatcht" erkannt
+    # --- Patch Game.exe ---
+    if not game_ok:  # not already flagged as "already patched" above
         if not apply_patches_simple(game_exe, GAME_PATCHES):
             return False
 

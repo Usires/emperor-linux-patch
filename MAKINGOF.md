@@ -213,6 +213,20 @@ prerequisite; this Linux patch is layered on top.
 - **2026-07-09** — Corrected documentation: the 1.09 patch removes the initial
   CD-check; this Linux patcher only handles the per-CD-switch check, and
   the local data/ tree needs four files per CD (not just movies).
+- **2026-07-09 (evening)** — Under Wine/Proton the launcher (`EMPEROR.EXE`)
+  occasionally crashes with `EXCEPTION_ACCESS_VIOLATION` shortly after the
+  splash screens, before the patched `Game.exe` even gets a turn. Reverse
+  engineered the launcher the same way we did `Game.exe`: 4 code patches
+  in `.text` plus a new `.lpatch` PE section (21-byte replacement function,
+  24-byte inline `strlen`, 19-byte CD-path string, version stamp). Patches
+  replicate the upstream reference binary's offsets byte-for-byte
+  (`0x56e1`, `0x5763`, `0x6220`, `0xf02a`); our section is `.lpatch` instead
+  of `.tomcraft` so users see at a glance which patcher produced it.
+- **2026-07-09 (late)** — Added `scripts/emperor_launcher_patch.py` and the
+  `scripts/emperor.py` dispatcher (subcommands `patch` / `rollback` /
+  `status`). The dispatcher orchestrates both phases; backups stay in
+  place until the user deletes them, so `--rollback` is non-destructive
+  and re-patchable.
 
 ## Credits
 

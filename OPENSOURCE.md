@@ -1,13 +1,18 @@
 # Open-Source Dependencies
 
-This project is intentionally minimal — a single Python script that
-performs byte-level patches on existing game files. No third-party
+This project is intentionally minimal — three Python scripts that
+perform byte-level patches on existing game files. No third-party
 libraries, no runtime dependencies, no build step.
+
+- `scripts/emperor_linux_patch.py` — `Game.exe` + `resource.cfg` patcher.
+- `scripts/emperor_launcher_patch.py` — `EMPEROR.EXE` launcher patcher.
+- `scripts/emperor.py` — dispatcher with subcommands (`patch`, `rollback`,
+  `status`); just orchestrates the two scripts above.
 
 ## Runtime requirements
 
-- **Python 3.8+** (standard library only: `hashlib`, `shutil`, `struct`,
-  `sys`, `pathlib`)
+- **Python 3.8+** (standard library only: `argparse`, `hashlib`, `shutil`,
+  `struct`, `sys`, `pathlib`)
 
 That's it. The script is a single file with zero external dependencies.
 
