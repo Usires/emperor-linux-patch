@@ -3,7 +3,7 @@
 Make **Emperor: Battle for Dune** (2001, Westwood/EA) run on Linux via
 Wine or Proton — without the original CDs and without a working CD drive.
 
-This is **not** a "no-CD crack". It is a from-scratch compatibility
+This is a from-scratch compatibility
 patcher written after first-principles reverse engineering of the
 game binaries (offsets and patch bytes documented in
 [MAKINGOF.md](MAKINGOF.md)). Especially games spanned over multiple
