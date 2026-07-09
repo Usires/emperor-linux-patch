@@ -39,8 +39,8 @@ preserved as-is.
 
 ### Why three patches instead of one
 
-The official 1.09 patch (which you must apply first) already removes
-the *initial* CD-check at game startup. It does **not** remove the
+The official 1.09 patch (which you must apply first) already makes
+some changes to the *initial* CD-check at game startup. It does **not** remove the
 *per-CD-switch* check during campaign play — that's what this
 patcher's `Game.exe` + `resource.cfg` layer fixes. And even with both
 of those, the launcher itself crashes on Linux because it has its own
