@@ -55,9 +55,7 @@ patch and roll back as a unit.
 - A legally owned copy of **Emperor: Battle for Dune** (GOG, EA, original CD — any source)
 - The official **1.09 English patch** applied once:
   download [`EM109DE.exe`](https://www.moddb.com/games/emperor-battle-for-dune/downloads/emperor-patch-109)
-  from Mod DB and run it on your game directory. The 1.09 patch fixes
-  community-map bugs and removes the initial CD-check at startup.
-  Without it, the game won't start on modern systems and the MD5 check
+  from Mod DB and run it on your game directory. Without it, the game won't start on modern systems and the MD5 check
   in the patcher will fail.
 - **Python 3.8+** on the machine you run the patcher from
 - A writable game directory you control
