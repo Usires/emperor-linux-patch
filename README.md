@@ -157,6 +157,13 @@ You should see output like this (truncated for readability):
   ✅ MOVIES2: 'E:\\Movies' → 'data\\CD2\\Movies'
   ... (6 more) ...
 
+The `from` paths shown above are whatever the resource.cfg currently
+contains for that key — with a Westwood retail install they read
+`E:\Movies` etc., but with a GOG / FAUGUS / Wine-mapped install the
+patcher shows the actual paths it found (e.g. `Z:\Movies`) before
+rewriting them to the local `data/CD{2,3,4}/` layout. Lines that
+already match the target are reported as `⊙ already ... skipping`.
+
 🔍 Verification:
   Game.exe:     ✅ OK
   resource.cfg: ✅ OK

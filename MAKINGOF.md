@@ -106,7 +106,7 @@ redirect, the game loads its CD2/3/4 data from local disk.
 ### Phase 4: `resource.cfg` (the easy part)
 
 `resource.cfg` is a plain text file (CRLF line endings) with key-path
-pairs. The original entries assume CD drives:
+pairs. The Westwood retail entries assume CD drives:
 
 ```
 MOVIES1
@@ -136,6 +136,13 @@ CD2
 data\CD2
 ...
 ```
+
+The first version of the patcher matched those original strings
+exactly and failed on every non-retail install (GOG, FAUGUS, EA,
+Wine-mapped drives). The current patcher rewrites whatever path sits
+under each CD/MOVIES key, so it works against any starting layout.
+Already-correct entries are detected and skipped (idempotent);
+missing keys are warned about, not fatal.
 
 Each CD directory needs four mission-data files (the filenames are
 identical on all three CDs):

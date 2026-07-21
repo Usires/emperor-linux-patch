@@ -106,20 +106,39 @@ GAME_PATCHES = [
 
 
 # === resource.cfg Patches ===
-# Maps the 8 original CD paths (E:\, D:\, .\cd3\, .\cd4\) to a local
-# data/ directory layout. The actual data files (DIALOG.BAG,
-# MOVIES0001.RFD/RFH, MUSIC.BAG) are not provided here — users must
-# extract them from their legally owned copies of CD2/CD3/CD4.
+# For each CD/MOVIES key, force the path to a known-good local layout,
+# regardless of what the user's resource.cfg currently contains. This
+# is robust against:
+#   - Wine/Proton mapping CD/DVD drives to arbitrary letters
+#   - Installers that pre-configure the paths (some set CD1=D:\,
+#     some set CD2=data\CD2 already, some keep Westwood defaults)
+#   - Users who manually edited the file to point at their setup
+#
+# Targets follow the reference layout used by the FAUGUS installer:
+#   CD1     → D:\           (DVD drive letter; not actually read because
+#                            the EXE patch overrides the CD struct,
+#                            but we keep it as a sensible default)
+#   CD2-4   → data\CD2-4    (mission data already extracted locally)
+#   MOVIES1 → D:\Movies     (same reasoning as CD1)
+#   MOVIES2-4 → data\CD2-4\Movies  (per-campaign movie lookup)
+#
+# The actual data files (DIALOG.BAG, MOVIES0001.RFD/RFH, MUSIC.BAG)
+# are not provided here — users must extract them from their legally
+# owned copies of CD2/CD3/CD4 into data/CD2/, data/CD3/, data/CD4/.
 # CRLF line endings are preserved (Westwood's parser is strict).
+#
+# Patch semantics: each entry is (key, replacement). The patcher
+# replaces whatever path sits under `key` with `replacement`. Already-
+# patched entries are detected and skipped (idempotent).
 RESOURCE_CFG_PATCHES = [
-    ("MOVIES1", "E:\\Movies",  "D:\\Movies"),
-    ("MOVIES2", "E:\\Movies",  "data\\CD2\\Movies"),
-    ("MOVIES3", "E:\\Movies",  "data\\CD3\\Movies"),
-    ("MOVIES4", "E:\\Movies",  "data\\CD4\\Movies"),
-    ("CD1",     "E:\\",        "D:\\"),
-    ("CD2",     "D:\\",        "data\\CD2"),
-    ("CD3",     ".\\cd3\\",    "data\\CD3"),
-    ("CD4",     ".\\cd4\\",    "data\\CD4"),
+    ("MOVIES1", "D:\\Movies"),
+    ("MOVIES2", "data\\CD2\\Movies"),
+    ("MOVIES3", "data\\CD3\\Movies"),
+    ("MOVIES4", "data\\CD4\\Movies"),
+    ("CD1",     "D:\\"),
+    ("CD2",     "data\\CD2"),
+    ("CD3",     "data\\CD3"),
+    ("CD4",     "data\\CD4"),
 ]
 
 
@@ -194,10 +213,24 @@ def patch_resource_cfg(path: Path) -> bool:
       <path>              ← path line (the one we patch)
       (blank line)
 
-    The file uses DOS line endings (CRLF). We preserve that style exactly:
-    path replacements are written with the same EOL suffix as the
-    original line, so the resulting file is byte-compatible with a
-    hybrid reference.
+    For each (key, replacement) in RESOURCE_CFG_PATCHES we look up the
+    line that follows `key` and overwrite it with `replacement`,
+    regardless of what the line currently contains. This makes the
+    patcher robust against:
+      - Wine/Proton mapping CD drives to arbitrary letters
+      - Installers that pre-configure CD paths differently from the
+        Westwood retail defaults
+      - Users who manually edited the file
+
+    Already-patched entries (line already equals `replacement`) are
+    skipped. Missing keys are reported as warnings, not errors, so a
+    resource.cfg from a stripped-down release can still be partially
+    patched.
+
+    The file uses DOS line endings (CRLF). We preserve that style:
+    replacements are written with the same EOL suffix as the line we
+    overwrite, so the resulting file stays byte-compatible with the
+    FAUGUS reference layout.
     """
     print(f"\n  🔧 Patching {path.name} ({len(RESOURCE_CFG_PATCHES)} CD paths):")
     raw = path.read_bytes()
@@ -213,38 +246,47 @@ def patch_resource_cfg(path: Path) -> bool:
 
     lines = raw.splitlines(keepends=True)
 
-    errors = []
+    missing = []
     patched = 0
-    for key, original, replacement in RESOURCE_CFG_PATCHES:
-        # key/original/replacement are Python strings here; for byte
-        # comparison we need latin-1 (1:1 ASCII mapping)
+    skipped = 0
+    for key, replacement in RESOURCE_CFG_PATCHES:
+        # key/replacement are Python strings here; for byte comparison
+        # we need latin-1 (1:1 ASCII mapping)
         key_b = key.encode("latin-1")
-        original_b = original.encode("latin-1")
         replacement_b = replacement.encode("latin-1")
 
-        pending_key = None
+        pending_key = False
         found = False
         for i, line_b in enumerate(lines):
             stripped_b = line_b.rstrip(b"\r\n")
-            if stripped_b == key_b:
-                pending_key = key_b
-                continue
-            if pending_key == key_b and stripped_b == original_b:
-                # Patch this line: replace the path, preserve the EOL
-                lines[i] = replacement_b + eol
-                pending_key = None
+            if pending_key:
+                # This is the path line that follows `key`. Replace it,
+                # preserving the EOL suffix of the original line.
+                if stripped_b == replacement_b:
+                    print(f"    ⊙ {key}: already {replacement!r}, skipping")
+                    skipped += 1
+                else:
+                    lines[i] = replacement_b + eol
+                    print(f"    ✅ {key}: {stripped_b.decode('latin-1')!r} → {replacement!r}")
+                    patched += 1
+                pending_key = False
                 found = True
-                print(f"    ✅ {key}: {original!r} → {replacement!r}")
-                patched += 1
                 break
-        if not found:
-            errors.append((key, original))
-            print(f"    ❌ {key}: 'original={original!r}' not found")
+            if stripped_b == key_b:
+                pending_key = True
 
-    if errors:
-        print(f"  ⚠️  {len(errors)} patch(es) could not be applied:")
-        for k, o in errors:
-            print(f"      - {k}: {o!r}")
+        if not found:
+            missing.append(key)
+            print(f"    ⚠️  {key}: key not found in resource.cfg (skipping)")
+
+    if missing:
+        print(f"  ⚠️  {len(missing)} key(s) not present in resource.cfg:")
+        for k in missing:
+            print(f"      - {k}")
+
+    if patched == 0 and skipped == 0:
+        # Nothing to write back, but also nothing verified — treat as
+        # failure so the user notices the missing keys.
         return False
 
     path.write_bytes(b"".join(lines))
@@ -252,10 +294,33 @@ def patch_resource_cfg(path: Path) -> bool:
 
 
 def verify_resource_cfg(path: Path) -> bool:
-    """Check whether resource.cfg carries all 8 path patches."""
+    """Check whether every CD/MOVIES key in resource.cfg carries its
+    expected replacement path.
+
+    Unlike a substring search, this walks key→path pairs so a path
+    that happens to appear elsewhere in the file (e.g. as a comment)
+    does not produce a false positive.
+    """
     raw = path.read_bytes()
-    text = raw.decode("latin-1")
-    return all(replacement in text for _, _, replacement in RESOURCE_CFG_PATCHES)
+    lines = raw.splitlines()
+    expected = {k: r.encode("latin-1") for k, r in RESOURCE_CFG_PATCHES}
+    pending = None
+    found_keys = set()
+    for line_b in lines:
+        if pending is not None:
+            if line_b == expected[pending]:
+                found_keys.add(pending)
+            pending = None
+            continue
+        if line_b in (k.encode("latin-1") for k in expected):
+            pending = line_b.decode("latin-1")
+    # All keys that are *present* in the file must carry the right path.
+    # Keys that are simply not present (some retail variants omit
+    # MOVIES2-4) are tolerated — they are warnings during patching,
+    # not failures here.
+    return found_keys == {k for k in expected if any(
+        line == k.encode("latin-1") for line in lines
+    )}
 
 
 # === Main logic ===
@@ -304,7 +369,7 @@ def patch(game_dir: Path) -> bool:
 
     # --- resource.cfg patchen ---
     if verify_resource_cfg(resource_cfg):
-        print(f"\n  ⊙ resource.cfg already patched (all 8 replacements present), skipping")
+        print(f"\n  ⊙ resource.cfg already patched (all CD paths correct), skipping")
     else:
         if not patch_resource_cfg(resource_cfg):
             return False

@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **`scripts/emperor_linux_patch.py` — `resource.cfg` patcher is now
+  installer-agnostic.** Previously the 8 CD-path patches only succeeded
+  when the file matched the Westwood retail defaults exactly
+  (`E:\`, `D:\`, `.\cd3\`, `.\cd4\`, `E:\Movies`). When users with GOG /
+  EA / pre-patched / Wine-mapped installs tried to run the patcher, 7
+  of 8 patches silently failed (`MOVIES1-4`, `CD1`, `CD3`, `CD4` not
+  found) and only `CD2` (which happened to match the retail default)
+  was rewritten. The new logic walks each `(key, replacement)` pair and
+  rewrites whatever path sits under that key, regardless of its current
+  value. Already-correct entries are reported as `⊙ already ...,
+  skipping`. Missing keys are warnings, not failures, so a stripped-
+  down `resource.cfg` from a non-standard release can still be patched
+  partially. Targets follow the FAUGUS reference layout:
+  `CD1=D:\`, `CD2-4=data\CD{2,3,4}`, `MOVIES1=D:\Movies`,
+  `MOVIES2-4=data\CD{2,3,4}\Movies`.
+
 ### Added
 - **`scripts/emperor_launcher_patch.py`** — launcher (`EMPEROR.EXE`) patcher.
   Applies 4 code patches in `.text` (offsets `0x56e1`, `0x5763`, `0x6220`,
